@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+            background: linear-gradient(135deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: #8b949e;
+            margin-bottom: 1.5rem;
+        }
+
+        .status {
+            font-size: 1.2rem;
+            min-height: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .status.x-turn { color: #58a6ff; }
+        .status.o-turn { color: #bc8cff; }
+        .status.winner { color: #3fb950; font-size: 1.4rem; }
+        .status.draw { color: #d29922; }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 110px);
+            grid-template-rows: repeat(3, 110px);
+            gap: 6px;
+            margin: 0 auto 1.5rem;
+            background: #30363d;
+            padding: 6px;
+            border-radius: 12px;
+        }
+
+        .cell {
+            background: #161b22;
+            border: none;
+            border-radius: 8px;
+            font-size: 2.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .cell:hover:not(.taken) {
+            background: #1c2333;
+            transform: scale(1.04);
+        }
+
+        .cell.taken { cursor: default; }
+        .cell.x { color: #58a6ff; }
+        .cell.o { color: #bc8cff; }
+
+        .cell.win-cell {
+            background: #122d1e;
+            animation: pop 0.35s ease;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1.2rem;
+            font-size: 0.95rem;
+        }
+
+        .score-item span:first-child { color: #8b949e; }
+        .score-item .val { font-weight: 700; margin-left: 0.35rem; }
+        .score-item .val.x-score { color: #58a6ff; }
+        .score-item .val.o-score { color: #bc8cff; }
+        .score-item .val.d-score { color: #d29922; }
+
+        .btn {
+            padding: 0.6rem 1.6rem;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background: #21262d;
+            color: #e6edf3;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn:hover { background: #30363d; }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #484f58;
+        }
+
+        .footer img {
+            width: 20px;
+            vertical-align: middle;
+            margin-right: 4px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tic Tac Toe</h1>
+        <p class="subtitle">GitHub Codespaces <span style="color:#e85d6c;">&#x2764;&#xFE0F;</span> Flask</p>
+
+        <div class="scoreboard">
+            <div class="score-item"><span>X Wins:</span><span class="val x-score" id="x-score">0</span></div>
+            <div class="score-item"><span>Draws:</span><span class="val d-score" id="d-score">0</span></div>
+            <div class="score-item"><span>O Wins:</span><span class="val o-score" id="o-score">0</span></div>
+        </div>
+
+        <div class="status x-turn" id="status">X's turn</div>
+
+        <div class="board" id="board">
+            <button class="cell" data-i="0"></button>
+            <button class="cell" data-i="1"></button>
+            <button class="cell" data-i="2"></button>
+            <button class="cell" data-i="3"></button>
+            <button class="cell" data-i="4"></button>
+            <button class="cell" data-i="5"></button>
+            <button class="cell" data-i="6"></button>
+            <button class="cell" data-i="7"></button>
+            <button class="cell" data-i="8"></button>
+        </div>
+
+        <button class="btn" id="reset">New Game</button>
+
+        <div class="footer">
+            <img src="{{ url_for('static', filename='Octocat.png') }}" alt="octocat">
+            Edit <code>templates/index.html</code> to customize
+        </div>
+    </div>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const status = document.getElementById('status');
+        const resetBtn = document.getElementById('reset');
+
+        const WINS = [
+            [0,1,2],[3,4,5],[6,7,8],
+            [0,3,6],[1,4,7],[2,5,8],
+            [0,4,8],[2,4,6]
+        ];
+
+        let board = Array(9).fill('');
+        let turn = 'X';
+        let gameOver = false;
+        let scores = { X: 0, O: 0, D: 0 };
+
+        function updateStatus(msg, cls) {
+            status.textContent = msg;
+            status.className = 'status ' + cls;
+        }
+
+        function checkWin(mark) {
+            return WINS.find(combo => combo.every(i => board[i] === mark));
+        }
+
+        function handleClick(e) {
+            const i = +e.target.dataset.i;
+            if (board[i] || gameOver) return;
+
+            board[i] = turn;
+            e.target.textContent = turn;
+            e.target.classList.add('taken', turn.toLowerCase());
+
+            const winCombo = checkWin(turn);
+            if (winCombo) {
+                gameOver = true;
+                winCombo.forEach(i => cells[i].classList.add('win-cell'));
+                scores[turn]++;
+                document.getElementById(turn.toLowerCase() + '-score').textContent = scores[turn];
+                updateStatus(turn + ' wins!', 'winner');
+                return;
+            }
+
+            if (board.every(c => c)) {
+                gameOver = true;
+                scores.D++;
+                document.getElementById('d-score').textContent = scores.D;
+                updateStatus("It's a draw!", 'draw');
+                return;
+            }
+
+            turn = turn === 'X' ? 'O' : 'X';
+            updateStatus(turn + "'s turn", turn.toLowerCase() + '-turn');
+        }
+
+        function reset() {
+            board = Array(9).fill('');
+            turn = 'X';
+            gameOver = false;
+            cells.forEach(c => {
+                c.textContent = '';
+                c.className = 'cell';
+            });
+            updateStatus("X's turn", 'x-turn');
+        }
+
+        cells.forEach(c => c.addEventListener('click', handleClick));
+        resetBtn.addEventListener('click', reset);
+    </script>
+</body>
+</html>
